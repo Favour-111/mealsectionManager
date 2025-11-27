@@ -127,14 +127,8 @@ function Products() {
   };
 
   const handleSave = async () => {
-    if (
-      !form.vendorId ||
-      !form.title ||
-      !form.price ||
-      !form.category ||
-      !form.image
-    ) {
-      alert("All fields required");
+    if (!form.vendorId || !form.title || !form.image) {
+      alert("Vendor, title, and image are required");
       return;
     }
     try {
