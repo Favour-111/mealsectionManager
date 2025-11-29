@@ -630,7 +630,7 @@ const Orders = () => {
                                     <div className="text-sm font-bold text-gray-900">
                                       #
                                       {order.orderNumber ||
-                                        order._id?.slice(-8)}
+                                        order._id?.slice(0, 8)}
                                     </div>
                                     <div className="text-xs text-gray-500">
                                       {order.createdAt
