@@ -32,6 +32,9 @@ const Orders = () => {
   const [managerData, setManagerData] = useState(null);
   const [riders, setRiders] = useState([]);
   const [riderMap, setRiderMap] = useState({});
+  const [decisionLoading, setDecisionLoading] = useState(null);
+  const [successInfo, setSuccessInfo] = useState(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   // Fetch manager data
   useEffect(() => {
@@ -55,6 +58,30 @@ const Orders = () => {
     fetchManagerData();
   }, []);
 
+  // Accept/Decline logic for packs
+  const handleDecision = async (decision, orderId, vendorId) => {
+    try {
+      setDecisionLoading(orderId + vendorId);
+      const res = await axios.put(
+        `${
+          import.meta.env.VITE_REACT_APP_API
+        }/api/users/orders/${orderId}/vendor/${vendorId}/accept`,
+        { accepted: decision }
+      );
+      setSuccessInfo({
+        type: decision ? "accepted" : "declined",
+        orderId: orderId.slice(0, 8),
+      });
+      setShowSuccessModal(true);
+      // Refresh orders after decision
+      await handleRefresh();
+    } catch (err) {
+      console.error("Failed to update:", err);
+      alert("Failed to update order. Please try again.");
+    } finally {
+      setDecisionLoading(null);
+    }
+  };
   // Fetch riders (to map rider IDs to names)
   useEffect(() => {
     const fetchRiders = async () => {
@@ -213,6 +240,13 @@ const Orders = () => {
   };
 
   const filteredOrders = getFilteredOrders();
+  // Sort filtered orders by most recent
+  const sortedFilteredOrders = filteredOrders
+    .slice()
+    .sort(
+      (a, b) =>
+        new Date(b.createdAt || b.date) - new Date(a.createdAt || a.date)
+    );
 
   // Calculate stats
   const stats = [
@@ -555,7 +589,7 @@ const Orders = () => {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {filteredOrders.length === 0 ? (
+                      {sortedFilteredOrders.length === 0 ? (
                         <tr>
                           <td colSpan="7" className="px-6 py-12 text-center">
                             <div className="flex flex-col items-center gap-3">
@@ -575,186 +609,285 @@ const Orders = () => {
                           </td>
                         </tr>
                       ) : (
-                        filteredOrders
-                          .slice()
-                          .reverse()
-                          .map((order) => (
-                            <tr
-                              key={order._id}
-                              className="hover:bg-gray-50 transition-colors"
-                            >
-                              <td className="px-6 py-4">
-                                <div className="flex items-center gap-3">
-                                  <div
-                                    className={`p-2 rounded-lg ${
+                        sortedFilteredOrders.map((order) => (
+                          <tr
+                            key={order._id}
+                            className="hover:bg-gray-50 transition-colors"
+                          >
+                            <td className="px-6 py-4">
+                              <div className="flex items-center gap-3">
+                                <div
+                                  className={`p-2 rounded-lg ${
+                                    (order.status || "").toLowerCase() ===
+                                      "delivered" ||
+                                    (order.status || "").toLowerCase() ===
+                                      "completed"
+                                      ? "bg-green-100"
+                                      : (order.status || "").toLowerCase() ===
+                                          "in-transit" ||
+                                        (order.status || "").toLowerCase() ===
+                                          "in transit"
+                                      ? "bg-purple-100"
+                                      : (order.status || "").toLowerCase() ===
+                                        "pending"
+                                      ? "bg-blue-100"
+                                      : "bg-gray-100"
+                                  }`}
+                                >
+                                  <BiPackage
+                                    className={`${
                                       (order.status || "").toLowerCase() ===
                                         "delivered" ||
                                       (order.status || "").toLowerCase() ===
                                         "completed"
-                                        ? "bg-green-100"
+                                        ? "text-green-600"
                                         : (order.status || "").toLowerCase() ===
                                             "in-transit" ||
                                           (order.status || "").toLowerCase() ===
                                             "in transit"
-                                        ? "bg-purple-100"
+                                        ? "text-purple-600"
                                         : (order.status || "").toLowerCase() ===
                                           "pending"
-                                        ? "bg-blue-100"
-                                        : "bg-gray-100"
+                                        ? "text-blue-600"
+                                        : "text-gray-600"
                                     }`}
-                                  >
-                                    <BiPackage
-                                      className={`${
-                                        (order.status || "").toLowerCase() ===
-                                          "delivered" ||
-                                        (order.status || "").toLowerCase() ===
-                                          "completed"
-                                          ? "text-green-600"
-                                          : (
-                                              order.status || ""
-                                            ).toLowerCase() === "in-transit" ||
-                                            (
-                                              order.status || ""
-                                            ).toLowerCase() === "in transit"
-                                          ? "text-purple-600"
-                                          : (
-                                              order.status || ""
-                                            ).toLowerCase() === "pending"
-                                          ? "text-blue-600"
-                                          : "text-gray-600"
-                                      }`}
-                                      size={20}
-                                    />
+                                    size={20}
+                                  />
+                                </div>
+                                <div>
+                                  <div className="text-sm font-bold text-gray-900">
+                                    #
+                                    {order.orderNumber ||
+                                      order._id?.slice(0, 8)}
                                   </div>
-                                  <div>
-                                    <div className="text-sm font-bold text-gray-900">
-                                      #
-                                      {order.orderNumber ||
-                                        order._id?.slice(0, 8)}
-                                    </div>
-                                    <div className="text-xs text-gray-500">
-                                      {order.createdAt
-                                        ? formatDate(order.createdAt)
-                                        : "Recently"}
-                                    </div>
+                                  <div className="text-xs text-gray-500">
+                                    {order.createdAt
+                                      ? formatDate(order.createdAt)
+                                      : "Recently"}
                                   </div>
                                 </div>
-                              </td>
-                              <td className="px-6 py-4">
-                                <div className="text-sm font-medium text-gray-900">
-                                  {order.userName ||
-                                    order.customerName ||
-                                    order.userId?.name ||
-                                    "N/A"}
-                                </div>
-                                <div className="text-xs text-gray-500">
-                                  {order.userEmail || "No email"}
-                                </div>
-                                <div className="text-xs text-gray-400 mt-0.5">
-                                  {order.university || managerData?.university}
-                                </div>
-                              </td>
-                              <td className="px-6 py-4">
-                                {(() => {
-                                  const vendorNames = [
-                                    ...new Set(
-                                      (order.packs || [])
-                                        .map((p) => p.vendorName)
-                                        .filter(Boolean)
-                                    ),
-                                  ];
-                                  return (
-                                    <div className="space-y-1">
-                                      <div
-                                        className="text-sm text-gray-900 font-medium truncate max-w-[160px]"
-                                        title={vendorNames.join(", ")}
-                                      >
-                                        {vendorNames.length
-                                          ? vendorNames.join(", ")
-                                          : order.vendorName ||
-                                            order.vendorId?.storeName ||
-                                            "N/A"}
-                                      </div>
-                                      <div className="flex flex-wrap gap-1">
-                                        {(order.packs || [])
-                                          .slice(0, 3)
-                                          .map((pack) => (
-                                            <span
-                                              key={pack._id}
-                                              className="px-2 py-0.5 bg-gray-100 rounded text-[10px] font-semibold text-gray-600"
-                                            >
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="text-sm font-medium text-gray-900">
+                                {order.userName ||
+                                  order.customerName ||
+                                  order.userId?.name ||
+                                  "N/A"}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {order.userEmail || "No email"}
+                              </div>
+                              <div className="text-xs text-gray-400 mt-0.5">
+                                {order.university || managerData?.university}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              {(() => {
+                                const vendorNames = [
+                                  ...new Set(
+                                    (order.packs || [])
+                                      .map((p) => p.vendorName)
+                                      .filter(Boolean)
+                                  ),
+                                ];
+                                return (
+                                  <div className="space-y-1">
+                                    <div
+                                      className="text-sm text-gray-900 font-medium truncate max-w-[160px]"
+                                      title={vendorNames.join(", ")}
+                                    >
+                                      {vendorNames.length
+                                        ? vendorNames.join(", ")
+                                        : order.vendorName ||
+                                          order.vendorId?.storeName ||
+                                          "N/A"}
+                                    </div>
+                                    <div className="flex flex-wrap gap-1">
+                                      {(order.packs || [])
+                                        .slice(0, 3)
+                                        .map((pack) => (
+                                          <span
+                                            key={pack._id}
+                                            className="px-2 py-0.5 bg-gray-100 rounded text-[10px] font-semibold text-gray-600"
+                                          >
+                                            {pack.name}
+                                          </span>
+                                        ))}
+                                      {(order.packs || []).length > 3 && (
+                                        <span className="px-2 py-0.5 bg-gray-200 rounded text-[10px] font-semibold text-gray-600">
+                                          +{(order.packs || []).length - 3}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+                              {(() => {
+                                const vendorNames = [
+                                  ...new Set(
+                                    (order.packs || [])
+                                      .map((p) => p.vendorName)
+                                      .filter(Boolean)
+                                  ),
+                                ];
+                                // Find first undecided pack
+                                const firstUndecidedPack = (
+                                  order.packs || []
+                                ).find((pack) => pack.accepted === null);
+                                return (
+                                  <div className="space-y-1">
+                                    <div
+                                      className="text-sm text-gray-900 font-medium truncate max-w-[160px]"
+                                      title={vendorNames.join(", ")}
+                                    >
+                                      {vendorNames.length
+                                        ? vendorNames.join(", ")
+                                        : order.vendorName ||
+                                          order.vendorId?.storeName ||
+                                          "N/A"}
+                                    </div>
+                                    <div className="flex flex-wrap gap-1">
+                                      {firstUndecidedPack ? (
+                                        <span
+                                          key={firstUndecidedPack._id}
+                                          className="flex items-center gap-1"
+                                        >
+                                          <span className="px-2 py-0.5 bg-gray-100 rounded text-[10px] font-semibold text-gray-600">
+                                            {firstUndecidedPack.name}
+                                          </span>
+                                          <button
+                                            className={`ml-1 px-2 py-0.5 rounded bg-green-100 text-green-700 text-[10px] font-bold border border-green-200 ${
+                                              decisionLoading ===
+                                              order._id +
+                                                firstUndecidedPack.vendorId
+                                                ? "opacity-50"
+                                                : ""
+                                            }`}
+                                            disabled={
+                                              decisionLoading ===
+                                              order._id +
+                                                firstUndecidedPack.vendorId
+                                            }
+                                            onClick={() =>
+                                              handleDecision(
+                                                true,
+                                                order._id,
+                                                firstUndecidedPack.vendorId
+                                              )
+                                            }
+                                          >
+                                            Accept
+                                          </button>
+                                          <button
+                                            className={`ml-1 px-2 py-0.5 rounded bg-red-100 text-red-700 text-[10px] font-bold border border-red-200 ${
+                                              decisionLoading ===
+                                              order._id +
+                                                firstUndecidedPack.vendorId
+                                                ? "opacity-50"
+                                                : ""
+                                            }`}
+                                            disabled={
+                                              decisionLoading ===
+                                              order._id +
+                                                firstUndecidedPack.vendorId
+                                            }
+                                            onClick={() =>
+                                              handleDecision(
+                                                false,
+                                                order._id,
+                                                firstUndecidedPack.vendorId
+                                              )
+                                            }
+                                          >
+                                            Decline
+                                          </button>
+                                        </span>
+                                      ) : (
+                                        (order.packs || []).map((pack) => (
+                                          <span
+                                            key={pack._id}
+                                            className="flex items-center gap-1"
+                                          >
+                                            <span className="px-2 py-0.5 bg-gray-100 rounded text-[10px] font-semibold text-gray-600">
                                               {pack.name}
                                             </span>
-                                          ))}
-                                        {(order.packs || []).length > 3 && (
-                                          <span className="px-2 py-0.5 bg-gray-200 rounded text-[10px] font-semibold text-gray-600">
-                                            +{(order.packs || []).length - 3}
+                                            {pack.accepted === true && (
+                                              <span className="ml-1 px-2 py-0.5 rounded bg-green-100 text-green-700 text-[10px] font-bold border border-green-200">
+                                                Accepted
+                                              </span>
+                                            )}
+                                            {pack.accepted === false && (
+                                              <span className="ml-1 px-2 py-0.5 rounded bg-red-100 text-red-700 text-[10px] font-bold border border-red-200">
+                                                Declined
+                                              </span>
+                                            )}
                                           </span>
-                                        )}
+                                        ))
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+                            </td>
+                            <td className="px-6 py-4">
+                              {(() => {
+                                const name = getRiderNameFromOrder(order);
+                                if (name) {
+                                  return (
+                                    <div className="flex items-center gap-2">
+                                      <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center text-purple-600 font-bold text-xs">
+                                        {name.charAt(0).toUpperCase()}
+                                      </div>
+                                      <div className="text-sm text-gray-900">
+                                        {name}
                                       </div>
                                     </div>
                                   );
-                                })()}
-                              </td>
-                              <td className="px-6 py-4">
-                                {(() => {
-                                  const name = getRiderNameFromOrder(order);
-                                  if (name) {
-                                    return (
-                                      <div className="flex items-center gap-2">
-                                        <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center text-purple-600 font-bold text-xs">
-                                          {name.charAt(0).toUpperCase()}
-                                        </div>
-                                        <div className="text-sm text-gray-900">
-                                          {name}
-                                        </div>
-                                      </div>
-                                    );
-                                  }
-                                  return (
-                                    <span className="text-sm text-gray-400">
-                                      Not assigned
-                                    </span>
-                                  );
-                                })()}
-                              </td>
-                              <td className="px-6 py-4">
-                                <div className="text-sm font-semibold text-gray-900">
-                                  ₦
-                                  {(
-                                    order.totalAmount ||
-                                    order.total ||
-                                    (order.subtotal || 0) +
-                                      (order.serviceFee || 0) +
-                                      (order.deliveryFee || 0)
-                                  ).toLocaleString()}
-                                </div>
-                                <div className="text-[10px] text-gray-500 mt-0.5">
-                                  Sub ₦{(order.subtotal || 0).toLocaleString()}{" "}
-                                  • Svc ₦
-                                  {(order.serviceFee || 0).toLocaleString()} •
-                                  Del ₦
-                                  {(order.deliveryFee || 0).toLocaleString()}
-                                </div>
-                              </td>
-                              <td className="px-6 py-4">
-                                {getStatusBadge(
-                                  order.status || order.currentStatus
-                                )}
-                              </td>
-                              <td className="px-6 py-4">
-                                <button
-                                  onClick={() => {
-                                    setSelectedOrder(order);
-                                    setDetailsOverlay(true);
-                                  }}
-                                  className="px-4 py-2 rounded-lg bg-gray-100 text-xs text-gray-700 font-semibold hover:bg-gray-200 transition-colors"
-                                >
-                                  Details
-                                </button>
-                              </td>
-                            </tr>
-                          ))
+                                }
+                                return (
+                                  <span className="text-sm text-gray-400">
+                                    Not assigned
+                                  </span>
+                                );
+                              })()}
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="text-sm font-semibold text-gray-900">
+                                ₦
+                                {(
+                                  order.totalAmount ||
+                                  order.total ||
+                                  (order.subtotal || 0) +
+                                    (order.serviceFee || 0) +
+                                    (order.deliveryFee || 0)
+                                ).toLocaleString()}
+                              </div>
+                              <div className="text-[10px] text-gray-500 mt-0.5">
+                                Sub ₦{(order.subtotal || 0).toLocaleString()} •
+                                Svc ₦{(order.serviceFee || 0).toLocaleString()}{" "}
+                                • Del ₦
+                                {(order.deliveryFee || 0).toLocaleString()}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              {getStatusBadge(
+                                order.status || order.currentStatus
+                              )}
+                            </td>
+                            <td className="px-6 py-4">
+                              <button
+                                onClick={() => {
+                                  setSelectedOrder(order);
+                                  setDetailsOverlay(true);
+                                }}
+                                className="px-4 py-2 rounded-lg bg-gray-100 text-xs text-gray-700 font-semibold hover:bg-gray-200 transition-colors"
+                              >
+                                Details
+                              </button>
+                            </td>
+                          </tr>
+                        ))
                       )}
                     </tbody>
                   </table>
