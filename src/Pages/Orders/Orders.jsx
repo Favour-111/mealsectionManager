@@ -691,46 +691,6 @@ const Orders = () => {
                                       .filter(Boolean)
                                   ),
                                 ];
-                                return (
-                                  <div className="space-y-1">
-                                    <div
-                                      className="text-sm text-gray-900 font-medium truncate max-w-[160px]"
-                                      title={vendorNames.join(", ")}
-                                    >
-                                      {vendorNames.length
-                                        ? vendorNames.join(", ")
-                                        : order.vendorName ||
-                                          order.vendorId?.storeName ||
-                                          "N/A"}
-                                    </div>
-                                    <div className="flex flex-wrap gap-1">
-                                      {(order.packs || [])
-                                        .slice(0, 3)
-                                        .map((pack) => (
-                                          <span
-                                            key={pack._id}
-                                            className="px-2 py-0.5 bg-gray-100 rounded text-[10px] font-semibold text-gray-600"
-                                          >
-                                            {pack.name}
-                                          </span>
-                                        ))}
-                                      {(order.packs || []).length > 3 && (
-                                        <span className="px-2 py-0.5 bg-gray-200 rounded text-[10px] font-semibold text-gray-600">
-                                          +{(order.packs || []).length - 3}
-                                        </span>
-                                      )}
-                                    </div>
-                                  </div>
-                                );
-                              })()}
-                              {(() => {
-                                const vendorNames = [
-                                  ...new Set(
-                                    (order.packs || [])
-                                      .map((p) => p.vendorName)
-                                      .filter(Boolean)
-                                  ),
-                                ];
                                 // Find first undecided pack
                                 const firstUndecidedPack = (
                                   order.packs || []
