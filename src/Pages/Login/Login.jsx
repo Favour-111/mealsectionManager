@@ -208,12 +208,6 @@ const Login = () => {
                       Remember Me
                     </span>
                   </label>
-                  <Link
-                    to="/reset-password"
-                    className="font-medium text-[var(--default)] hover:text-[#9e0505] hover:underline transition-colors whitespace-nowrap"
-                  >
-                    Forgot Password?
-                  </Link>
                 </div>
 
                 {/* Submit */}
