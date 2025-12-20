@@ -29,6 +29,9 @@ const Orders = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(20);
+  const [totalOrders, setTotalOrders] = useState(0);
   const [managerData, setManagerData] = useState(null);
   const [riders, setRiders] = useState([]);
   const [riderMap, setRiderMap] = useState({});
@@ -123,24 +126,31 @@ const Orders = () => {
     );
   };
 
+  const selectedUniversity = localStorage.getItem("selectedUniversity");
   // Fetch orders
   useEffect(() => {
     const fetchOrders = async () => {
-      if (!managerData?.university) return;
-
+      if (!selectedUniversity) return;
       try {
         setLoading(true);
         const response = await axios.get(
-          `${import.meta.env.VITE_REACT_APP_API}/api/users/orders`
+          `${import.meta.env.VITE_REACT_APP_API}/api/users/orders`,
+          {
+            params: {
+              page,
+              limit,
+            },
+          }
         );
-
-        // Filter orders by manager's university
+        // Filter orders by selected university (case-insensitive, fallback to empty string)
         const rawOrders = response.data.orders || response.data || [];
         const filteredOrders = rawOrders.filter(
-          (order) => order.university === managerData.university
+          (order) =>
+            (order.university || "").toLowerCase() ===
+            selectedUniversity.toLowerCase()
         );
-
         setOrders(filteredOrders);
+        setTotalOrders(response.data.total || filteredOrders.length);
         setError("");
       } catch (err) {
         console.error("Error fetching orders:", err);
@@ -149,9 +159,8 @@ const Orders = () => {
         setLoading(false);
       }
     };
-
     fetchOrders();
-  }, [managerData]);
+  }, [page, limit]);
 
   // Real-time listeners
   useEffect(() => {
@@ -171,16 +180,25 @@ const Orders = () => {
 
   // Refresh orders
   const handleRefresh = () => {
-    if (managerData) {
+    const selectedUniversity = localStorage.getItem("selectedUniversity");
+    if (selectedUniversity) {
       setLoading(true);
       axios
-        .get(`${import.meta.env.VITE_REACT_APP_API}/api/users/orders`)
+        .get(`${import.meta.env.VITE_REACT_APP_API}/api/users/orders`, {
+          params: {
+            page,
+            limit,
+          },
+        })
         .then((response) => {
           const rawOrders = response.data.orders || response.data || [];
           const filteredOrders = rawOrders.filter(
-            (order) => order.university === managerData.university
+            (order) =>
+              (order.university || "").toLowerCase() ===
+              selectedUniversity.toLowerCase()
           );
           setOrders(filteredOrders);
+          setTotalOrders(response.data.total || filteredOrders.length);
           setError("");
         })
         .catch((err) => {
@@ -204,8 +222,7 @@ const Orders = () => {
           ""
         ).toLowerCase();
         if (activeTab === "pending") return status === "pending";
-        if (activeTab === "transit")
-          return status === "in-transit" || status === "in transit";
+        if (activeTab === "transit") return status === "processing";
         if (activeTab === "completed")
           return status === "delivered" || status === "completed";
         if (activeTab === "declined")
@@ -262,7 +279,10 @@ const Orders = () => {
       title: "Pending",
       value: orders
         .filter(
-          (o) => (o.status || o.currentStatus || "").toLowerCase() === "pending"
+          (o) =>
+            (o.status || o.currentStatus || "").toLowerCase() === "pending" &&
+            (o.university || "").toLowerCase() ===
+              (selectedUniversity || "").toLowerCase()
         )
         .length.toString(),
       icon: <MdPendingActions size={24} />,
@@ -275,7 +295,7 @@ const Orders = () => {
       value: orders
         .filter((o) => {
           const s = (o.status || o.currentStatus || "").toLowerCase();
-          return s === "in-transit" || s === "in transit";
+          return s === "processing";
         })
         .length.toString(),
       icon: <MdLocalShipping size={24} />,
@@ -317,7 +337,10 @@ const Orders = () => {
       id: "pending",
       label: "Pending",
       count: orders.filter(
-        (o) => (o.status || o.currentStatus || "").toLowerCase() === "pending"
+        (o) =>
+          (o.status || o.currentStatus || "").toLowerCase() === "pending" &&
+          (o.university || "").toLowerCase() ===
+            (selectedUniversity || "").toLowerCase()
       ).length,
     },
     {
@@ -325,7 +348,7 @@ const Orders = () => {
       label: "In Transit",
       count: orders.filter((o) => {
         const s = (o.status || o.currentStatus || "").toLowerCase();
-        return s === "in-transit" || s === "in transit";
+        return s === "processing";
       }).length,
     },
     {
@@ -442,8 +465,7 @@ const Orders = () => {
                   </h1>
                   <p className="text-sm text-gray-500 mt-0.5">
                     Track and manage all delivery orders
-                    {managerData?.university &&
-                      ` for ${managerData.university}`}
+                    {selectedUniversity && ` for ${selectedUniversity}`}
                   </p>
                 </div>
               </div>
@@ -601,8 +623,7 @@ const Orders = () => {
                                 {searchQuery
                                   ? "Try adjusting your search"
                                   : `No orders for ${
-                                      managerData?.university ||
-                                      "your university"
+                                      selectedUniversity || "your university"
                                     }`}
                               </p>
                             </div>
@@ -835,7 +856,7 @@ const Orders = () => {
                                 order.status || order.currentStatus
                               )}
                             </td>
-                            <td className="px-6 py-4">
+                            <td className="px-6 py-4 flex flex-row gap-2">
                               <button
                                 onClick={() => {
                                   setSelectedOrder(order);
@@ -845,6 +866,22 @@ const Orders = () => {
                               >
                                 Details
                               </button>
+                              {/* Assign Rider button, only show if order is pending */}
+                              {(
+                                order.status ||
+                                order.currentStatus ||
+                                ""
+                              ).toLowerCase() === "pending" && (
+                                <button
+                                  onClick={() => {
+                                    setSelectedOrder(order);
+                                    setOvevrLay(true);
+                                  }}
+                                  className="px-4 py-2 rounded-lg bg-purple-100 text-xs text-purple-700 font-semibold border border-purple-200 hover:bg-purple-200 transition-colors"
+                                >
+                                  Assign Rider
+                                </button>
+                              )}
                             </td>
                           </tr>
                         ))
@@ -856,18 +893,24 @@ const Orders = () => {
                 {/* Pagination */}
                 <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between bg-gray-50">
                   <div className="text-sm text-gray-600">
-                    Showing{" "}
-                    <span className="font-semibold">
-                      {filteredOrders.length}
-                    </span>{" "}
-                    of <span className="font-semibold">{orders.length}</span>{" "}
-                    orders
+                    Showing page {page} of {Math.ceil(totalOrders / limit)} |{" "}
+                    {totalOrders} orders
                   </div>
                   <div className="flex gap-2">
-                    <button className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                    <button
+                      className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      disabled={page === 1 || loading}
+                    >
                       Previous
                     </button>
-                    <button className="px-4 py-2 bg-[var(--default)] text-white rounded-lg text-sm font-medium hover:opacity-90 transition-opacity">
+                    <button
+                      className="px-4 py-2 bg-[var(--default)] text-white rounded-lg text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+                      onClick={() => setPage((p) => p + 1)}
+                      disabled={
+                        page >= Math.ceil(totalOrders / limit) || loading
+                      }
+                    >
                       Next
                     </button>
                   </div>
@@ -879,16 +922,16 @@ const Orders = () => {
       </div>
 
       {/* Reassign Modal */}
-      {overLay && (
+      {overLay && selectedOrder && (
         <div className="flex items-center justify-center fixed bg-black/60 backdrop-blur-sm z-50 inset-0">
           <div className="bg-white rounded-2xl shadow-2xl w-[95%] max-w-md p-6 transform transition-all animate-fadeIn">
             <div className="flex justify-between items-center mb-4">
               <div className="flex items-center gap-3">
-                <div className="bg-red-100 p-2 rounded-lg">
-                  <MdRefresh className="text-red-600" size={22} />
+                <div className="bg-purple-100 p-2 rounded-lg">
+                  <MdLocalShipping className="text-purple-600" size={22} />
                 </div>
                 <h1 className="font-bold text-xl text-gray-800">
-                  Reassign Order
+                  Assign Rider
                 </h1>
               </div>
               <button
@@ -900,7 +943,7 @@ const Orders = () => {
             </div>
 
             <p className="text-sm text-gray-600 mb-5 pl-1">
-              Select a new rider to handle this delivery order
+              Select a rider to handle this delivery order
             </p>
 
             <div className="space-y-4">
@@ -908,29 +951,25 @@ const Orders = () => {
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Available Riders
                 </label>
-                <select className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--default)] focus:border-transparent text-sm bg-white">
+                <select
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--default)] focus:border-transparent text-sm bg-white"
+                  value={selectedOrder.rider || ""}
+                  onChange={(e) =>
+                    setSelectedOrder({
+                      ...selectedOrder,
+                      rider: e.target.value,
+                    })
+                  }
+                >
                   <option value="">Select a rider...</option>
-                  <option value="1">
-                    Obaloluwa - {managerData?.university} (5★)
-                  </option>
-                  <option value="2">
-                    Akinola - {managerData?.university} (4.8★)
-                  </option>
-                  <option value="3">
-                    Tunde - {managerData?.university} (4.9★)
-                  </option>
+                  {riders
+                    .filter((r) => r.valid)
+                    .map((r) => (
+                      <option key={r._id} value={r._id}>
+                        {r.userName || r.name || r.email} - {r.university}
+                      </option>
+                    ))}
                 </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Reason for Reassignment (Optional)
-                </label>
-                <textarea
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--default)] focus:border-transparent text-sm resize-none"
-                  rows="3"
-                  placeholder="Enter reason..."
-                ></textarea>
               </div>
             </div>
 
@@ -941,8 +980,25 @@ const Orders = () => {
               >
                 Cancel
               </button>
-              <button className="flex-1 px-5 py-3 bg-[var(--default)] text-white rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity shadow-md">
-                Confirm Reassign
+              <button
+                className="flex-1 px-5 py-3 bg-[var(--default)] text-white rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity shadow-md"
+                disabled={!selectedOrder.rider}
+                onClick={async () => {
+                  try {
+                    await axios.put(
+                      `${import.meta.env.VITE_REACT_APP_API}/api/users/orders/${
+                        selectedOrder._id
+                      }/assign-rider`,
+                      { rider: selectedOrder.rider }
+                    );
+                    setOvevrLay(false);
+                    handleRefresh();
+                  } catch (err) {
+                    alert("Failed to assign rider.");
+                  }
+                }}
+              >
+                Confirm Assign
               </button>
             </div>
           </div>

@@ -39,7 +39,7 @@ const Login = () => {
 
       setSuccess("Login successful!");
       setTimeout(() => {
-        navigate("/order");
+        navigate("/select-uni");
       }, 1500);
     } catch (err) {
       console.error("Login error:", err);
@@ -249,19 +249,6 @@ const Login = () => {
                     "Sign In"
                   )}
                 </button>
-
-                {/* Sign up */}
-                <div className="text-center pt-4 border-t border-gray-100">
-                  <p className="text-gray-600">
-                    Don't have an account?{" "}
-                    <Link
-                      to="/sign-up"
-                      className="font-semibold text-[var(--default)] hover:text-[#9e0505] hover:underline transition-colors"
-                    >
-                      Sign Up
-                    </Link>
-                  </p>
-                </div>
               </form>
             </div>
           </div>

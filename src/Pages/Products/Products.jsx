@@ -12,6 +12,8 @@ import { IoMenu } from "react-icons/io5";
 import SideBar from "../../components/SideBar/SideBar";
 
 function Products() {
+  // Track loading state for toggling availability per product
+  const [toggleLoading, setToggleLoading] = useState({});
   const managerId = localStorage.getItem("managerId");
   const [openNav, setOpenNav] = useState(false);
   const [manager, setManager] = useState(null);
@@ -65,25 +67,26 @@ function Products() {
     init();
   }, [managerId]);
 
-  // Vendors filtered by manager university
+  // Vendors filtered by selected university
+  const selectedUniversity = localStorage.getItem("selectedUniversity");
   const scopedVendors = useMemo(() => {
-    if (!manager?.university) return [];
+    if (!selectedUniversity) return [];
     return vendors.filter(
       (v) =>
-        (v.university || "").toLowerCase() === manager.university.toLowerCase()
+        (v.university || "").toLowerCase() === selectedUniversity.toLowerCase()
     );
-  }, [vendors, manager]);
+  }, [vendors, selectedUniversity]);
 
   // Map products joined with vendor info, scoped by university
   const scopedProducts = useMemo(() => {
-    if (!manager?.university) return [];
-    const uni = manager.university.toLowerCase();
+    if (!selectedUniversity) return [];
+    const uni = selectedUniversity.toLowerCase();
     return products.filter((p) => {
       const v = vendors.find((vd) => String(vd._id) === String(p.vendorId));
       if (!v) return false;
       return (v.university || "").toLowerCase() === uni;
     });
-  }, [products, vendors, manager]);
+  }, [products, vendors, selectedUniversity]);
 
   // Apply vendor + search filters
   const visibleProducts = useMemo(() => {
@@ -215,7 +218,7 @@ function Products() {
                   </h1>
                   <p className="text-sm text-gray-500 mt-0.5">
                     Manage vendor products
-                    {manager?.university ? ` for ${manager.university}` : ""}
+                    {selectedUniversity ? ` for ${selectedUniversity}` : ""}
                   </p>
                 </div>
               </div>
@@ -318,15 +321,86 @@ function Products() {
                         <p className="text-sm font-bold text-orange-600 mt-1">
                           ₦{Number(p.price).toLocaleString()}
                         </p>
-                        <span
-                          className={`inline-flex mt-1 items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                            p.available
-                              ? "bg-green-100 text-green-600"
-                              : "bg-red-100 text-red-600"
-                          }`}
-                        >
-                          {p.available ? "Available" : "Unavailable"}
-                        </span>
+                        <div className="mt-2 flex items-center">
+                          <span
+                            className={`inline-flex mt-1 items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                              p.available
+                                ? "bg-green-100 text-green-600"
+                                : "bg-red-100 text-red-600"
+                            }`}
+                          >
+                            {p.available ? "Available" : "Unavailable"}
+                          </span>
+                          <button
+                            onClick={async () => {
+                              setToggleLoading((prev) => ({
+                                ...prev,
+                                [p._id]: true,
+                              }));
+                              try {
+                                const res = await axios.put(
+                                  `${
+                                    import.meta.env.VITE_REACT_APP_API
+                                  }/api/vendors/toggle/${p._id}`
+                                );
+                                setProducts((prev) =>
+                                  prev.map((prod) =>
+                                    prod._id === p._id
+                                      ? {
+                                          ...prod,
+                                          available: res.data.available,
+                                        }
+                                      : prod
+                                  )
+                                );
+                              } catch (e) {
+                                alert(
+                                  e.response?.data?.message ||
+                                    "Failed to toggle availability"
+                                );
+                              } finally {
+                                setToggleLoading((prev) => ({
+                                  ...prev,
+                                  [p._id]: false,
+                                }));
+                              }
+                            }}
+                            className={`ml-2 px-2 py-0.5 rounded text-xs font-semibold border flex items-center gap-1 ${
+                              p.available
+                                ? "border-green-400 text-green-700 bg-green-50 hover:bg-green-100"
+                                : "border-red-400 text-red-700 bg-red-50 hover:bg-red-100"
+                            }`}
+                            title={
+                              p.available
+                                ? "Mark as Out of Stock"
+                                : "Mark as In Stock"
+                            }
+                            disabled={toggleLoading[p._id]}
+                          >
+                            {toggleLoading[p._id] ? (
+                              <svg
+                                className="animate-spin h-4 w-4 mr-1 text-gray-400"
+                                viewBox="0 0 24 24"
+                              >
+                                <circle
+                                  className="opacity-25"
+                                  cx="12"
+                                  cy="12"
+                                  r="10"
+                                  stroke="currentColor"
+                                  strokeWidth="4"
+                                  fill="none"
+                                />
+                                <path
+                                  className="opacity-75"
+                                  fill="currentColor"
+                                  d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                                />
+                              </svg>
+                            ) : null}
+                            {p.available ? "Set Out of Stock" : "Set In Stock"}
+                          </button>
+                        </div>
                       </div>
                     </div>
                     <div className="mt-3 flex justify-end">

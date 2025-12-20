@@ -25,6 +25,7 @@ const SideBar = ({ setOpenNav }) => {
     "/order": "order",
     "/products": "products",
     "/customers": "customers",
+    "/approvals": "approvals",
     "/settings": "settings",
   };
 
@@ -56,16 +57,19 @@ const SideBar = ({ setOpenNav }) => {
     fetchManager();
   }, []);
 
-  // Load orders counts scoped by university
+  // Load orders counts scoped by selected university
   const loadOrdersCounts = useCallback(async () => {
-    if (!managerData?.university) return;
+    const selectedUniversity = localStorage.getItem("selectedUniversity");
+    if (!selectedUniversity) return;
     try {
       const res = await axios.get(
         `${import.meta.env.VITE_REACT_APP_API}/api/users/orders`
       );
       const raw = res.data?.orders || res.data || [];
       const uniOrders = raw.filter(
-        (o) => o.university === managerData.university
+        (o) =>
+          (o.university || "").toLowerCase() ===
+          selectedUniversity.toLowerCase()
       );
       setOrdersCountTotal(uniOrders.length);
       const pending = uniOrders.filter(
@@ -75,16 +79,16 @@ const SideBar = ({ setOpenNav }) => {
     } catch (e) {
       console.error("Sidebar: failed to fetch orders", e);
     }
-  }, [managerData]);
+  }, []);
 
-  // Initial + on manager change
+  // Initial + on university change
   useEffect(() => {
     loadOrdersCounts();
   }, [loadOrdersCounts]);
 
   // Realtime updates via socket
   useEffect(() => {
-    if (!socket || !managerData?.university) return;
+    if (!socket) return;
     const handler = () => loadOrdersCounts();
     socket.on("orders:new", handler);
     socket.on("orders:status", handler);
@@ -96,7 +100,7 @@ const SideBar = ({ setOpenNav }) => {
       socket.off("orders:assignRider", handler);
       socket.off("vendors:packsUpdated", handler);
     };
-  }, [socket, managerData, loadOrdersCounts]);
+  }, [socket, loadOrdersCounts]);
 
   const menuItems = useMemo(
     () => [
@@ -105,7 +109,6 @@ const SideBar = ({ setOpenNav }) => {
         label: "Orders",
         icon: <BiPackage size={20} />,
         path: "/order",
-        // show pending if any, else total if any, else undefined (no badge)
         badge:
           ordersCountPending > 0
             ? String(ordersCountPending)
@@ -119,6 +122,12 @@ const SideBar = ({ setOpenNav }) => {
         icon: <MdShoppingCart size={20} />,
         path: "/products",
       },
+      {
+        id: "approvals",
+        label: "Approvals",
+        icon: <MdPeople size={20} />,
+        path: "/approvals",
+      },
     ],
     [ordersCountPending, ordersCountTotal]
   );
@@ -130,25 +139,18 @@ const SideBar = ({ setOpenNav }) => {
     }
   };
 
+  // Add a button to go back to university select
+  const handleUniversityChange = () => {
+    // Remove selected university from localStorage and redirect
+    localStorage.removeItem("selectedUniversity");
+    localStorage.removeItem("selectedUniversityId");
+    navigate("/select-uni");
+    if (setOpenNav) setOpenNav(false);
+  };
+
   return (
-    <div className="h-screen bg-gradient-to-b from-white to-gray-50 shadow-2xl w-full overflow-y-auto flex flex-col">
+    <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="p-4 border-b border-gray-200 bg-white">
-        <div className="flex items-center justify-between">
-          <img
-            src="https://github.com/Favour-111/my-asset/blob/main/images%20(2).jpeg?raw=true"
-            alt="logo"
-            className="w-[140px]"
-          />
-          <button
-            className="md:hidden p-2 hover:bg-gray-100 rounded-lg transition-colors"
-            onClick={() => setOpenNav?.(false)}
-            aria-label="Close sidebar"
-          >
-            <AiOutlineClose size={22} className="text-gray-700" />
-          </button>
-        </div>
-      </div>
 
       {/* User Profile Section */}
       <div className="p-4 bg-gradient-to-r from-orange-500 to-orange-600 text-white">
@@ -159,6 +161,9 @@ const SideBar = ({ setOpenNav }) => {
           <div>
             <h3 className="font-bold text-sm">Welcome Back!</h3>
             <p className="text-xs opacity-90">{managerName}</p>
+            <p className="text-xs opacity-90">
+              {localStorage.getItem("selectedUniversity")}
+            </p>
           </div>
         </div>
       </div>
@@ -244,6 +249,17 @@ const SideBar = ({ setOpenNav }) => {
         <div className="text-center mt-3">
           <p className="text-xs text-gray-400">Manager Portal v1.0</p>
         </div>
+      </div>
+
+      {/* Change University Button - Moved to bottom */}
+      <div className="p-4 border-t border-gray-200 bg-white mt-auto">
+        <button
+          onClick={handleUniversityChange}
+          className="w-full px-4 cursor-pointer py-2 rounded bg-blue-100 text-blue-700 text-sm font-semibold hover:bg-blue-200 transition-colors"
+          title="Change University"
+        >
+          Change University
+        </button>
       </div>
     </div>
   );
