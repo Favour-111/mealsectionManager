@@ -149,7 +149,7 @@ const SideBar = ({ setOpenNav }) => {
   };
 
   return (
-    <div className="flex flex-col bg-white- h-full">
+    <div className="flex flex-col bg-white h-full">
       {/* Header */}
 
       {/* User Profile Section */}
