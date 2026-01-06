@@ -34,11 +34,11 @@ const Orders = () => {
   const [totalOrders, setTotalOrders] = useState(0);
   const [managerData, setManagerData] = useState(null);
   const [riders, setRiders] = useState([]);
+  const selectedUniversityId = localStorage.getItem("selectedUniversity");
   const [riderMap, setRiderMap] = useState({});
   const [decisionLoading, setDecisionLoading] = useState(null);
   const [successInfo, setSuccessInfo] = useState(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-
   // Fetch manager data
   useEffect(() => {
     const fetchManagerData = async () => {
@@ -963,7 +963,9 @@ const Orders = () => {
                 >
                   <option value="">Select a rider...</option>
                   {riders
-                    .filter((r) => r.valid)
+                    .filter(
+                      (r) => r.valid && r.university === selectedUniversityId
+                    )
                     .map((r) => (
                       <option key={r._id} value={r._id}>
                         {r.userName || r.name || r.email} - {r.university}
